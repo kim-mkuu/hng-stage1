@@ -6,7 +6,7 @@ from .views import (
 )
 
 urlpatterns = [
-    path('strings/filter-by-natural-language', StringNaturalLanguageFilterView.as_view(), name='string-nl-filter'),
-    path('strings/<path:string_value>', StringDetailDeleteView.as_view(), name='string-detail-delete'),
-    path('strings', StringAPIView.as_view(), name='string-api'),
+    path('strings/filter-by-natural-language/', StringNaturalLanguageFilterView.as_view(), name='string-nl-filter'),
+    path('strings/<path:string_value>/', StringDetailDeleteView.as_view(), name='string-detail-delete'),
+    path('strings/', StringAPIView.as_view(), name='string-api'),
 ]

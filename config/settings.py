@@ -135,3 +135,5 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.JSONParser',
     ],
 }
+
+APPEND_SLASH = True 
