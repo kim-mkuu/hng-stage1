@@ -1,7 +1,7 @@
 from django.db import models
 
 # Models creation
-class string(models.Model):
+class String(models.Model): #corrected strings -> Strings
     value = models.TextField(unique=True)
     length = models.IntegerField()
     is_palindrome = models.BooleanField()
