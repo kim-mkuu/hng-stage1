@@ -255,7 +255,7 @@ GET /strings?word_count=2&contains_character=a
 2. Sign up at [railway.app](https://railway.app)
 3. Create new project from GitHub repo
 4. Add environment variables in Railway dashboard:
-   - `SECRET_KEY` 
+   - `SECRET_KEY`
    - `DEBUG=False`
    - `ALLOWED_HOSTS=your-domain.railway.app`
 5. Railway will auto-deploy on push
