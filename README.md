@@ -1,4 +1,4 @@
-# RESTful API string analyzer
+# RESTful API String Analyzer
 
 ## Build a RESTful API service that analyzes strings and stores their computed properties
 
@@ -13,10 +13,11 @@ A RESTful API that analyzes strings and computes their properties including leng
 - **Duplicate Prevention**: Automatic detection and rejection of duplicate strings (409 Conflict)
 - **RESTful Design**: Proper HTTP status codes and JSON responses
 - **URL-Safe**: Handles special characters and spaces in string values
+- **Production Ready**: Configured with Gunicorn, PostgreSQL support, and WhiteNoise for static files
 
 ## 📋 Prerequisites
 
-- Python 3.8 or higher
+- Python 3.11 or higher
 - pip (Python package manager)
 - Git
 - virtualenv (recommended)
@@ -46,11 +47,29 @@ python -m venv venv
 venv\Scripts\activate
 ```
 
-### 3. Install Dependencies
+### 3. Install Dependencies 
 
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
+```
+
+#### Core Dependencies
+
+```txt
+asgiref==3.10.0
+dj-database-url==3.0.1
+Django==5.2.7
+django-filter==25.2
+djangorestframework==3.16.1
+gunicorn==23.0.0
+packaging==25.0
+psycopg2-binary==2.9.11
+python-decouple==3.8
+python-dotenv==1.1.1
+sqlparse==0.5.3
+tzdata==2025.2
+whitenoise==6.11.0
 ```
 
 ### 4. Configure Environment Variables
@@ -58,7 +77,7 @@ pip install -r requirements.txt
 Create a `.env` file in the root directory:
 
 ```bash
-touch .env
+cp .env.example .env
 ```
 
 Add the following variables to `.env`:
@@ -67,7 +86,17 @@ Add the following variables to `.env`:
 SECRET_KEY=your-django-secret-key-here
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
+DATABASE_URL=sqlite:///db.sqlite3
 ```
+
+### Environment Variables In-Detail
+
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `SECRET_KEY` | Django secret key for cryptographic signing | Yes | Fallback for dev |
+| `DEBUG` | Enable/disable debug mode | No | True |
+| `ALLOWED_HOSTS` | Comma-separated list of allowed hosts | No | `*` |
+| `DATABASE_URL` | Database connection string | No | SQLite |
 
 **Note:** Generate a secure SECRET_KEY using:
 
@@ -90,28 +119,30 @@ python manage.py runserver
 
 The API will be available at: `http://127.0.0.1:8000`
 
-## 📦 Dependencies
+**Note:** If your browser automatically adds a trailing slash and returns 404, clear your browser cache or use `curl` for testing.
 
-### Installing Dependencies
+## 📁 Project Structure
 
-All dependencies are listed in `requirements.txt`. Install them using:
-
-```bash
-pip install -r requirements.txt
-```
-
-### Core Dependencies
-
-```env
-Django>=4.2.0
-djangorestframework>=3.14.0
-python-dotenv>=1.0.0
-```
-
-For production deployment, also install:
-
-```bash
-pip install gunicorn psycopg2-binary
+```txt
+hng-stage1/
+├── config/                 # Django project configuration
+│   ├── settings.py        # Main settings with environment variables
+│   ├── urls.py            # Root URL configuration
+│   └── wsgi.py            # WSGI entry point
+├── strings/               # Main application
+│   ├── models.py          # String model with computed fields
+│   ├── serializers.py     # DRF serializers for validation
+│   ├── views.py           # API view classes
+│   ├── urls.py            # App-specific URL patterns
+│   └── utils.py           # String analysis utility functions
+├── .env                   # Environment variables (not in git)
+├── .env.example           # Example environment file
+├── .gitignore             # Git ignore rules
+├── manage.py              # Django management script
+├── requirements.txt       # Python dependencies
+├── Procfile               # Deployment configuration (Gunicorn)
+├── runtime.txt            # Python version specification
+└── README.md              # Project documentation
 ```
 
 ## 🌐 API Endpoints
@@ -150,6 +181,12 @@ pip install gunicorn psycopg2-binary
 }
 ```
 
+**Error Responses:**
+
+- **409 Conflict:** String already exists
+- **400 Bad Request:** Missing "value" field
+- **422 Unprocessable Entity:** Value is not a string
+
 ### 2. Get Specific String
 
 **Endpoint:** `GET /strings/{string_value}`
@@ -157,6 +194,10 @@ pip install gunicorn psycopg2-binary
 **Example:** `GET /strings/hello%20world`
 
 **Response (200 OK):** Same structure as create response
+
+**Error Response:**
+
+- **404 Not Found:** String does not exist
 
 ### 3. List All Strings with Filtering
 
@@ -191,6 +232,10 @@ GET /strings?word_count=2&contains_character=a
 }
 ```
 
+**Error Response:**
+
+- **400 Bad Request:** Invalid query parameter values or types
+
 ### 4. Natural Language Filtering
 
 **Endpoint:** `GET /strings/filter-by-natural-language?query={text}`
@@ -201,6 +246,7 @@ GET /strings?word_count=2&contains_character=a
 - "strings longer than 10 characters"
 - "strings containing the letter z"
 - "palindromic strings"
+- "palindromic strings that contain the first vowel"
 
 **Example:** `GET /strings/filter-by-natural-language?query=palindromic%20strings`
 
@@ -219,6 +265,11 @@ GET /strings?word_count=2&contains_character=a
 }
 ```
 
+**Error Responses:**
+
+- **400 Bad Request:** Missing query parameter
+- **422 Unprocessable Entity:** Conflicting filters detected
+
 ### 5. Delete String
 
 **Endpoint:** `DELETE /strings/{string_value}`
@@ -226,6 +277,10 @@ GET /strings?word_count=2&contains_character=a
 **Example:** `DELETE /strings/hello%20world`
 
 **Response:** `204 No Content`
+
+**Error Response:**
+
+- **404 Not Found:** String does not exist
 
 ### Status Codes
 
@@ -237,110 +292,187 @@ GET /strings?word_count=2&contains_character=a
 | 400 | Bad Request - Invalid request data or query parameters |
 | 404 | Not Found - Resource doesn't exist |
 | 409 | Conflict - Duplicate string detected |
-| 422 | Unprocessable Entity - Invalid data type (value must be string) |
+| 422 | Unprocessable Entity - Invalid data type or conflicting filters |
 
-## 🔧 Environment Variables
 
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `SECRET_KEY` | Django secret key for cryptographic signing | Yes | - |
-| `DEBUG` | Enable/disable debug mode | No | True |
-| `ALLOWED_HOSTS` | Comma-separated list of allowed hosts | No | `*` |
+## 🧪 Testing
+
+### Comprehensive Endpoint Testing
+
+#### 1. Test POST /strings (Create)
+
+```bash
+# 201 Created - Success
+curl -X POST http://127.0.0.1:8000/strings \
+  -H "Content-Type: application/json" \
+  -d '{"value":"test string"}'
+
+# 409 Conflict - Duplicate
+curl -X POST http://127.0.0.1:8000/strings \
+  -H "Content-Type: application/json" \
+  -d '{"value":"test string"}'
+
+# 400 Bad Request - Missing value field
+curl -X POST http://127.0.0.1:8000/strings \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# 422 Unprocessable Entity - Non-string value
+curl -X POST http://127.0.0.1:8000/strings \
+  -H "Content-Type: application/json" \
+  -d '{"value":123}'
+```
+
+#### 2. Test GET /strings/{string_value}
+
+```bash
+# 200 OK - Existing string
+curl http://127.0.0.1:8000/strings/test%20string
+
+# 404 Not Found - Non-existent
+curl http://127.0.0.1:8000/strings/nonexistent
+```
+
+#### 3. Test GET /strings (Filtering)
+
+```bash
+# Create test data first
+curl -X POST http://127.0.0.1:8000/strings -H "Content-Type: application/json" -d '{"value":"racecar"}'
+curl -X POST http://127.0.0.1:8000/strings -H "Content-Type: application/json" -d '{"value":"hello world"}'
+curl -X POST http://127.0.0.1:8000/strings -H "Content-Type: application/json" -d '{"value":"a very long string with more than ten characters"}'
+
+# 200 OK - No filters
+curl http://127.0.0.1:8000/strings
+
+# 200 OK - With filters
+curl "http://127.0.0.1:8000/strings?is_palindrome=true"
+curl "http://127.0.0.1:8000/strings?min_length=5&max_length=20"
+curl "http://127.0.0.1:8000/strings?word_count=2"
+
+# 400 Bad Request - Invalid parameter
+curl "http://127.0.0.1:8000/strings?min_length=abc"
+```
+
+#### 4. Test Natural Language Filtering
+
+```bash
+# Create palindrome test data
+curl -X POST http://127.0.0.1:8000/strings -H "Content-Type: application/json" -d '{"value":"mom"}'
+curl -X POST http://127.0.0.1:8000/strings -H "Content-Type: application/json" -d '{"value":"zebra"}'
+
+# 200 OK - Valid queries
+curl "http://127.0.0.1:8000/strings/filter-by-natural-language?query=all%20single%20word%20palindromic%20strings"
+curl "http://127.0.0.1:8000/strings/filter-by-natural-language?query=strings%20longer%20than%2010%20characters"
+curl "http://127.0.0.1:8000/strings/filter-by-natural-language?query=strings%20containing%20the%20letter%20z"
+curl "http://127.0.0.1:8000/strings/filter-by-natural-language?query=palindromic%20strings"
+
+# 400 Bad Request - Missing query
+curl "http://127.0.0.1:8000/strings/filter-by-natural-language"
+
+# 422 Unprocessable Entity - Conflicting filters (if implemented)
+curl "http://127.0.0.1:8000/strings/filter-by-natural-language?query=strings%20longer%20than%20100%20and%20shorter%20than%2010"
+```
+
+#### 5. Test DELETE /strings/{string_value}
+
+```bash
+# Create string to delete
+curl -X POST http://127.0.0.1:8000/strings -H "Content-Type: application/json" -d '{"value":"delete me"}'
+
+# 204 No Content - Success
+curl -X DELETE http://127.0.0.1:8000/strings/delete%20me
+
+# Verify deletion - 404 Not Found
+curl http://127.0.0.1:8000/strings/delete%20me
+
+# 404 Not Found - Already deleted
+curl -X DELETE http://127.0.0.1:8000/strings/delete%20me
+```
 
 ## 🚢 Deployment
 
-### Railway Deployment
+### Leapcell Deployment
 
-1. Push code to GitHub repository
-2. Sign up at [railway.app](https://railway.app)
-3. Create new project from GitHub repo
-4. Add environment variables in Railway dashboard:
-   - `SECRET_KEY`
-   - `DEBUG=False`
-   - `ALLOWED_HOSTS=your-domain.railway.app`
-5. Railway will auto-deploy on push
+1. **Prepare Project Files**
 
-### Environment Variables for Production
+Ensure you have:
+
+- `Procfile`: `web: gunicorn config.wsgi --log-file -`
+- `runtime.txt`: `python-3.11`
+- `requirements.txt`: All dependencies listed
+
+2. **Push to GitHub**
+
+```bash
+git add .
+git commit -m "Prepare for Leapcell deployment"
+git push origin main
+```
+
+3. **Deploy on Leapcell**
+
+- Go to [leapcell.io](https://leapcell.io)
+- Sign up/Login
+- Click "New Project"
+- Connect your GitHub repository
+- Select `hng-stage1` repo
+- Leapcell auto-detects Django project
+
+4. **Configure Environment Variables**
+
+In Leapcell dashboard, set:
 
 ```env
 SECRET_KEY=your-production-secret-key
 DEBUG=False
-ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
+ALLOWED_HOSTS=your-app.leapcell.io
 ```
 
-## 🧪 Testing
+5. **Deploy**
 
-### Test with cURL
+Click "Deploy" - Leapcell automatically:
 
-**Create a string:**
+- Installs dependencies from `requirements.txt`
+- Runs database migrations
+- Starts Gunicorn server
+
+6. **Verify Deployment**
 
 ```bash
-curl -X POST http://127.0.0.1:8000/strings \
-  -H "Content-Type: application/json" \
-  -d '{"value": "racecar"}'
+curl https://your-app.leapcell.io/strings
 ```
 
-**Get all strings:**
+## 🔍 Implementation Details
 
-```bash
-curl http://127.0.0.1:8000/strings
-```
+### String Properties Calculation
 
-**Filter palindromes:**
+**utils.py** implements exact property calculations per specification:
 
-```bash
-curl "http://127.0.0.1:8000/strings?is_palindrome=true"
-```
+- `length`: Total character count including spaces/punctuation
+- `is_palindrome`: Case-insensitive comparison (does NOT strip spaces)
+- `unique_characters`: Distinct character count (includes spaces)
+- `word_count`: Using `value.split()` (collapses multiple spaces)
+- `sha256_hash`: Lowercase hex digest of UTF-8 encoded string
+- `character_frequency_map`: Counts all characters including spaces
 
-**Natural language query:**
+### URL Routing Order
 
-```bash
-curl "http://127.0.0.1:8000/strings/filter-by-natural-language?query=palindromic%20strings"
-```
+**strings/urls.py** maintains critical routing order:
 
-**Delete string:**
+1. `strings/filter-by-natural-language` (most specific)
+2. `strings/<path:string_value>` (dynamic path)
+3. `strings` (base endpoint)
 
-```bash
-curl -X DELETE http://127.0.0.1:8000/strings/racecar
-```
+This prevents the dynamic path from catching `filter-by-natural-language` as a string value.
 
-**Test duplicate (should return 409):**
+### Database Configuration
 
-```bash
-curl -X POST http://127.0.0.1:8000/strings \
-  -H "Content-Type: application/json" \
-  -d '{"value": "racecar"}'
-```
+Uses `dj-database-url` for flexible database configuration:
 
-### Test with Postman/Insomnia
+- **Local:** SQLite (default)
+- **Production:** PostgreSQL (via DATABASE_URL env variable)
 
-1. Import endpoints listed above
-2. Set `Content-Type: application/json` header for POST requests
-3. Test each endpoint with various inputs
-4. Verify status codes match specification
-
-## 📁 Project Structure
-
-```txt
-string-analyzer-api/
-├── config/                 # Django project configuration
-│   ├── settings.py        # Main settings with environment variables
-│   ├── urls.py            # Root URL configuration
-│   └── wsgi.py            # WSGI entry point
-├── strings/               # Main application
-│   ├── models.py          # String model with computed fields
-│   ├── serializers.py     # DRF serializers for validation
-│   ├── views.py           # API view classes
-│   ├── urls.py            # App-specific URL patterns
-│   └── utils.py           # String analysis utility functions
-├── .env                   # Environment variables (not in git)
-├── .env.example           # Example environment file
-├── .gitignore             # Git ignore rules
-├── manage.py              # Django management script
-├── requirements.txt       # Python dependencies
-├── Procfile               # Deployment configuration
-└── README.md              # Project documentation
-```
+No manual configuration needed - automatically switches based on environment.
 
 ## 🐛 Troubleshooting
 
@@ -351,6 +483,7 @@ string-analyzer-api/
 ```bash
 # Find and kill the process
 lsof -ti:8000 | xargs kill -9
+
 # Or use a different port
 python manage.py runserver 8080
 ```
@@ -366,6 +499,7 @@ python manage.py runserver 8080
 ```bash
 # Reset database (development only)
 rm db.sqlite3
+python manage.py makemigrations
 python manage.py migrate
 ```
 
@@ -386,6 +520,18 @@ pip install -r requirements.txt
 
 - Check URL encoding: spaces should be `%20`
 - Ensure string value matches exactly (case-sensitive)
+
+**7. Browser adds trailing slash causing 404:**
+
+- Clear browser cache
+- Use `curl` or API client instead of browser
+- `APPEND_SLASH = False` is set in settings.py
+
+**8. Empty results for natural language query:**
+
+- Returns 200 OK with empty data array (not an error)
+- Ensure test data exists that matches the query
+- Example: "strings containing the letter z" requires strings with 'z'
 
 ## 👤 Author
 
