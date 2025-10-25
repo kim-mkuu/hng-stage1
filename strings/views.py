@@ -184,6 +184,17 @@ class StringNaturalLanguageFilterView(APIView):
         parsed_filters = {}
         queryset = String.objects.all()
         
+        #Check for conflicting filters
+        has_min_length = 'longer than' in query_lower or 'more than' in query_lower
+        has_max_length = 'shorter than' in query_lower or 'less than' in query_lower
+
+         # Example: "strings longer than 100 and shorter than 10" = conflict
+        if has_min_length and has_max_length:
+            return Response(
+                {"error": "Query parsed but resulted in conflicting filters"},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+
         # Parse natural language query
         if 'single word' in query_lower and 'palindrom' in query_lower:
             queryset = queryset.filter(word_count=1, is_palindrome=True)
