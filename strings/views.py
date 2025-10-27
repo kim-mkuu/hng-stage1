@@ -1,4 +1,5 @@
 from rest_framework import status
+from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.http import Http404
@@ -9,6 +10,22 @@ import urllib.parse
 import logging
 
 logger = logging.getLogger(__name__)
+
+@api_view(['GET'])
+def welcome(request):
+    return Response ({
+        "message": "Welcome to my string analyzer API",
+        "endpoints": {
+            "create_string": "POST /strings",
+            "get_string": "GET /strings/{string_value}",
+            "list_strings": "GET /strings",
+            "filter_strings": "GET /string?is_palindrome=true&min_length=5",
+            "natural_language": "GET /strings/filter-by-natural-language?query=...",
+            "delete_string": "DELETE /strings/{string_value}"
+        },
+        "documentation": "http://github.com/kim-mkuu/hng-stage1",
+        "status": "online"
+    })
 
 class StringAPIView(APIView):
     """POST /strings and GET /strings"""
